@@ -1,0 +1,19 @@
+whiteList:
+- host: ".*baidu.com"
+  duration: "1h"
+- host: ".*bing.com"
+- host: "github.com"
+- host: ".*.githubusercontent.com"
+- host: "twitter.com"
+
+windows:
+- from: "00:00"
+  to: "23:59"
+
+notify:
+  email:
+    server:
+      username:
+      password:
+    targets:
+    - xxx@xxx.com
