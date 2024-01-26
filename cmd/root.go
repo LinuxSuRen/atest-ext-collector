@@ -14,16 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package cmd
 
-import (
-	"os"
+import "github.com/spf13/cobra"
 
-	"github.com/linuxsuren/atest-ext-collector/cmd"
-)
-
-func main() {
-	if err := cmd.CreateRootCmd().Execute(); err != nil {
-		os.Exit(1)
+func CreateRootCmd() (c *cobra.Command) {
+	c = &cobra.Command{
+		Use:   "atest-collector",
+		Short: "A collector for API testing, it will start a HTTP proxy server",
 	}
+	c.AddCommand(createCollectorCmd(), createControllerCmd())
+	return
 }
