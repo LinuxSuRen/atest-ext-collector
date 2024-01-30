@@ -5,6 +5,9 @@ whiteList:
 - host: "github.com"
 - host: ".*.githubusercontent.com"
 - host: "twitter.com"
+- host: "gitee.com"
+- host: ".*.google.com"
+- host: "vuejs.org"
 
 windows:
 - from: "00:00"

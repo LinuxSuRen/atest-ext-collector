@@ -17,6 +17,7 @@ limitations under the License.
 package pkg
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -35,6 +36,10 @@ type Controller struct {
 type WhiteItem struct {
 	Host     string        `yaml:"host"`
 	Duration time.Duration `yaml:"duration"`
+}
+
+func (w *WhiteItem) IsValid() bool {
+	return w.Host != ""
 }
 
 type Window struct {
@@ -68,6 +73,19 @@ func ParseController(config string) (ctrl *Controller, err error) {
 	return
 }
 
+func SaveController(config string, ctrl *Controller) (err error) {
+	var data []byte
+	if data, err = yaml.Marshal(ctrl); err == nil {
+		err = SaveControllerData(config, data)
+	}
+	return
+}
+
+func SaveControllerData(config string, data []byte) (err error) {
+	err = os.WriteFile(config, data, 0644)
+	return
+}
+
 func (c *Controller) ConnectFilter(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
 	inWindow := false
 	now := time.Now()
@@ -98,4 +116,9 @@ func (c *Controller) ConnectFilter(host string, ctx *goproxy.ProxyCtx) (*goproxy
 
 	log.Printf("reject: %q\n", host)
 	return goproxy.RejectConnect, host
+}
+
+func (c *Controller) ToJSONData() []byte {
+	data, _ := json.Marshal(c)
+	return data
 }

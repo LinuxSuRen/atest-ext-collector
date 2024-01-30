@@ -31,9 +31,10 @@ import (
 )
 
 type controllerOption struct {
-	port     int
-	verbose  bool
-	upstream string
+	port           int
+	controllerPort int
+	verbose        bool
+	upstream       string
 }
 
 func createControllerCmd() (c *cobra.Command) {
@@ -46,6 +47,7 @@ func createControllerCmd() (c *cobra.Command) {
 	}
 	flags := c.Flags()
 	flags.IntVarP(&opt.port, "port", "p", 9090, "The port for the proxy")
+	flags.IntVarP(&opt.controllerPort, "controller-port", "", 7070, "The controller manager port")
 	flags.BoolVarP(&opt.verbose, "verbose", "", false, "Verbose mode")
 	flags.StringVarP(&opt.upstream, "upstream", "", "", "The upstream proxy")
 	return
@@ -53,7 +55,8 @@ func createControllerCmd() (c *cobra.Command) {
 
 func (o *controllerOption) runE(c *cobra.Command, args []string) (err error) {
 	var ctrl *pkg.Controller
-	if ctrl, err = pkg.ParseController(args[0]); err != nil {
+	configFile := args[0]
+	if ctrl, err = pkg.ParseController(configFile); err != nil {
 		return
 	}
 
@@ -80,7 +83,34 @@ func (o *controllerOption) runE(c *cobra.Command, args []string) (err error) {
 		_ = srv.Shutdown(context.Background())
 	}()
 
+	go func() {
+		o.startControllerRestful(configFile)
+	}()
 	c.Println("Starting the proxy server with port", o.port)
 	_ = srv.ListenAndServe()
 	return
+}
+
+func (o *controllerOption) startControllerRestful(configFile string) {
+	mux := http.NewServeMux()
+	rest := pkg.NewControllerRest(configFile)
+
+	handle(mux, http.MethodGet, "/config", rest.GetConfig)
+	handle(mux, http.MethodPost, "/config/white", rest.AddWhiteItem)
+	handle(mux, http.MethodDelete, "/config/white", rest.DelWhiteItem)
+	handle(mux, http.MethodPost, "/config/window", rest.AddWindowItem)
+	handle(mux, http.MethodDelete, "/config/window", rest.DelWindowItem)
+
+	http.ListenAndServe(fmt.Sprintf(":%d", o.controllerPort), mux)
+}
+
+func handle(mux *http.ServeMux, method, pattern string, handler func(http.ResponseWriter, *http.Request)) {
+	mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != method {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		handler(w, r)
+	})
 }
