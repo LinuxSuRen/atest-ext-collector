@@ -16,14 +16,18 @@ limitations under the License.
 
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	exec "github.com/linuxsuren/go-fake-runtime"
+	"github.com/spf13/cobra"
+)
 
 func CreateRootCmd() (c *cobra.Command) {
 	c = &cobra.Command{
 		Use:   "atest-collector",
 		Short: "A collector for API testing, it will start a HTTP proxy server",
 	}
-	c.AddCommand(createCollectorCmd(), createControllerCmd(),
+
+	c.AddCommand(createCollectorCmd(), createControllerCmd(), createServiceCommand(exec.FakeExecer{}),
 		createProxyCmd(), createDNSCmd())
 	return
 }
