@@ -28,11 +28,12 @@ import (
 )
 
 type Controller struct {
-	WhiteList []WhiteItem `yaml:"whiteList"`
-	Windows   []Window    `yaml:"windows"`
+	WhiteList []FilterItem `yaml:"whiteList"`
+	BlackList []FilterItem `yaml:"blackList"`
+	Windows   []Window     `yaml:"windows"`
 }
 
-type WhiteItem struct {
+type FilterItem struct {
 	Host     string        `yaml:"host"`
 	Duration time.Duration `yaml:"duration"`
 }
@@ -85,6 +86,16 @@ func (c *Controller) ConnectFilter(host string, ctx *goproxy.ProxyCtx) (*goproxy
 	if !inWindow {
 		log.Printf("reject: %q due to out of window\n", host)
 		return goproxy.RejectConnect, host
+	}
+
+	for _, w := range c.BlackList {
+		ok, err := regexp.MatchString(w.Host, host)
+		if err != nil {
+			log.Printf("find wrong pattern: %q, error is: %v", w.Host, err)
+		} else if ok {
+			log.Printf("reject: %q due to blacklist\n", host)
+			return goproxy.RejectConnect, host
+		}
 	}
 
 	for _, w := range c.WhiteList {
