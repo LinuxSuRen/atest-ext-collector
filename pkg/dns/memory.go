@@ -16,6 +16,8 @@ limitations under the License.
 
 package dns
 
+import "strings"
+
 type memoryCache struct {
 	records map[string]string
 }
@@ -36,6 +38,10 @@ func (m *memoryCache) Init(init map[string]string) {
 }
 
 func (m *memoryCache) Put(domain, ip string) {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return
+	}
 	m.records[domain] = ip
 }
 func (m *memoryCache) Remove(domain string) {

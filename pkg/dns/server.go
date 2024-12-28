@@ -45,8 +45,8 @@ func (s *httpServer) Start() (err error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.home)
-	mux.HandleFunc("/api/get", s.apiGetData)
-	mux.HandleFunc("/api/remove", s.apiRemoveData)
+	mux.HandleFunc("/remove", s.removeData)
+	mux.HandleFunc("/add", s.addData)
 
 	server := &http.Server{
 		Handler: mux,
@@ -70,10 +70,18 @@ func (s *httpServer) home(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *httpServer) apiGetData(w http.ResponseWriter, r *http.Request) {
+func (s *httpServer) removeData(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	s.dnsCache.Remove(domain)
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
-func (s *httpServer) apiRemoveData(w http.ResponseWriter, r *http.Request) {
+func (s *httpServer) addData(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	domain := r.Form.Get("domain")
+	ip := r.Form.Get("ip")
+	s.dnsCache.Put(domain, ip)
+	http.Redirect(w, r, "/", http.StatusPermanentRedirect)
 }
 
 func (s *httpServer) Stop() (err error) {
