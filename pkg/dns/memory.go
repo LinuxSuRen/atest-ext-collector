@@ -42,6 +42,14 @@ func (m *memoryCache) Remove(domain string) {
 	delete(m.records, domain)
 }
 
+func (m *memoryCache) Data() (data map[string]string) {
+	data = make(map[string]string)
+	for k, v := range m.records {
+		data[k] = v
+	}
+	return
+}
+
 func (m *memoryCache) Size() int {
 	return len(m.records)
 }

@@ -21,6 +21,12 @@ type DNSCache interface {
 	Init(map[string]string)
 	Put(domain, ip string)
 	Remove(string)
+	Data() map[string]string
 	Size() int
 	Name() string
+}
+
+type Server interface {
+	Start() error
+	Stop() error
 }

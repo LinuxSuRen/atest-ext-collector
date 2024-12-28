@@ -45,6 +45,7 @@ func createDNSCmd() (cmd *cobra.Command) {
 type dnsOptions struct {
 	upstream     string
 	port         int
+	httpPort     int
 	simpleConfig string
 	cache        string
 
@@ -55,6 +56,7 @@ type dnsOptions struct {
 func (o *dnsOptions) setFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&o.upstream, "upstream", "u", "8.8.8.8:53", "upstream dns server")
 	flags.IntVarP(&o.port, "port", "p", 53, "The port for the dns server")
+	flags.IntVarP(&o.httpPort, "http-port", "", 9090, "The port for the http server")
 	flags.StringVarP(&o.simpleConfig, "simple-config", "", "", "A map based simple config of DNS records")
 	flags.StringVarP(&o.cache, "cache", "", "memory", fmt.Sprintf("The DNS cache type, supported: %v", adns.GetDNSCacheNames()))
 }
@@ -88,6 +90,11 @@ func (o *dnsOptions) runE(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	cmd.Println("DNS server is ready!")
+	go func() {
+		if err := adns.NewHTTPServer(o.httpPort, o.cacheHandler).Start(); err != nil {
+			panic(err)
+		}
+	}()
 	// Wait to get request on that port
 	for {
 		tmp := make([]byte, 1024)
