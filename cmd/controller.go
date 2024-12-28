@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/spf13/pflag"
 	"net/http"
 	"net/url"
 	"os"
@@ -30,10 +31,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type controllerOption struct {
+type proxyOption struct {
 	port     int
 	verbose  bool
 	upstream string
+
+	handler func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string)
+}
+
+type controllerOption struct {
+	proxyOption
+	ctrl *pkg.Controller
 }
 
 func createControllerCmd() (c *cobra.Command) {
@@ -44,19 +52,23 @@ func createControllerCmd() (c *cobra.Command) {
 		RunE:  opt.runE,
 		Args:  cobra.MinimumNArgs(1),
 	}
-	flags := c.Flags()
-	flags.IntVarP(&opt.port, "port", "p", 9090, "The port for the proxy")
-	flags.BoolVarP(&opt.verbose, "verbose", "", false, "Verbose mode")
-	flags.StringVarP(&opt.upstream, "upstream", "", "", "The upstream proxy")
+	opt.SetFlags(c.Flags())
 	return
 }
 
-func (o *controllerOption) runE(c *cobra.Command, args []string) (err error) {
-	var ctrl *pkg.Controller
-	if ctrl, err = pkg.ParseController(args[0]); err != nil {
-		return
-	}
+func (o *proxyOption) SetFlags(flags *pflag.FlagSet) {
+	flags.IntVarP(&o.port, "port", "p", 9090, "The port for the proxy")
+	flags.BoolVarP(&o.verbose, "verbose", "", false, "Verbose mode")
+	flags.StringVarP(&o.upstream, "upstream", "", "", "The upstream proxy")
+}
 
+func (o *controllerOption) readController(c *cobra.Command, args []string) (err error) {
+	o.ctrl, err = pkg.ParseController(args[0])
+	o.handler = o.ctrl.ConnectFilter
+	return
+}
+
+func (o *proxyOption) runE(c *cobra.Command, args []string) (err error) {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Verbose = o.verbose
 	if o.upstream != "" {
@@ -66,7 +78,7 @@ func (o *controllerOption) runE(c *cobra.Command, args []string) (err error) {
 		proxy.ConnectDial = proxy.NewConnectDialToProxy(o.upstream)
 		c.Println("Using upstream proxy", o.upstream)
 	}
-	proxy.OnRequest().HandleConnectFunc(ctrl.ConnectFilter)
+	proxy.OnRequest().HandleConnectFunc(o.handler)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", o.port),
