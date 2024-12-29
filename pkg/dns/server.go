@@ -26,6 +26,7 @@ import (
 
 type httpServer struct {
 	port     int
+	listener net.Listener
 	dnsCache DNSCache
 }
 
@@ -37,8 +38,7 @@ func NewHTTPServer(port int, dnsCache DNSCache) Server {
 }
 
 func (s *httpServer) Start() (err error) {
-	var listener net.Listener
-	listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
 		return
 	}
@@ -51,7 +51,7 @@ func (s *httpServer) Start() (err error) {
 	server := &http.Server{
 		Handler: mux,
 	}
-	err = server.Serve(listener)
+	err = server.Serve(s.listener)
 	return
 }
 
@@ -77,7 +77,10 @@ func (s *httpServer) removeData(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpServer) addData(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	domain := r.Form.Get("domain")
 	ip := r.Form.Get("ip")
 	s.dnsCache.Put(domain, ip)
@@ -85,6 +88,9 @@ func (s *httpServer) addData(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpServer) Stop() (err error) {
+	if s.listener != nil {
+		err = s.listener.Close()
+	}
 	return
 }
 
