@@ -5,6 +5,8 @@ build:
 	go build -o bin/atest-collector .
 build-win:
 	GOOS=windows go build -o bin/atest-collector.exe .
+build-linux:
+	GOOS=linux go build -o bin/atest-collector .
 test:
 	go test ./... -cover -v -coverprofile=coverage.out
 	go tool cover -func=coverage.out
