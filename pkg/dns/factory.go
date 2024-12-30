@@ -14,16 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cmd
+package dns
 
-import "github.com/spf13/cobra"
+var allCache = map[string]DNSCache{}
 
-func CreateRootCmd() (c *cobra.Command) {
-	c = &cobra.Command{
-		Use:   "atest-collector",
-		Short: "A collector for API testing, it will start a HTTP proxy server",
+func Registry(dnsCache DNSCache) {
+	allCache[dnsCache.Name()] = dnsCache
+}
+
+func GetDNSCache(name string) DNSCache {
+	return allCache[name]
+}
+
+func GetDNSCacheNames() (keys []string) {
+	for k := range allCache {
+		keys = append(keys, k)
 	}
-	c.AddCommand(createCollectorCmd(), createControllerCmd(),
-		createProxyCmd(), createDNSCmd())
 	return
 }

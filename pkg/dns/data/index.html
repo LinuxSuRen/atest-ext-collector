@@ -1,0 +1,43 @@
+<html>
+<head>
+    <title>Simple DNS Server Manager</title>
+    <script type="application/javascript">
+        function showAddForm() {
+            document.getElementById('addFormZone').classList.remove('hide');
+        }
+    </script>
+    <style>
+        .hide {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div>
+    <button onclick="showAddForm()">Add a new record</button> There are {{.size}} records.
+    <div class="hide" id="addFormZone">
+        <form action="/add" method="post">
+            Domain: <input name="domain"/>
+            IP: <input name="ip"/>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+</div>
+
+<table border="1">
+    <tr>
+        <th>Domain</th>
+        <th>IP</th>
+        <th>Operation</th>
+    </tr>
+    {{range $k, $v := .cache}}
+    <tr>
+        <td>{{$k}}</td>
+        <td>{{$v}}</td>
+        <td><a href="/remove?domain={{$k}}">Remove</a></td>
+    </tr>
+    {{end}}
+</table>
+</body>
+</html>

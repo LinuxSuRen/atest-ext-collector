@@ -14,16 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cmd
+package dns
 
-import "github.com/spf13/cobra"
+type DNSCache interface {
+	LookupIP(string) string
+	Init(map[string]string)
+	Put(domain, ip string)
+	Remove(string)
+	Data() map[string]string
+	Size() int
+	Name() string
+}
 
-func CreateRootCmd() (c *cobra.Command) {
-	c = &cobra.Command{
-		Use:   "atest-collector",
-		Short: "A collector for API testing, it will start a HTTP proxy server",
-	}
-	c.AddCommand(createCollectorCmd(), createControllerCmd(),
-		createProxyCmd(), createDNSCmd())
-	return
+type Server interface {
+	Start() error
+	Stop() error
 }
