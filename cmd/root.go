@@ -24,6 +24,6 @@ func CreateRootCmd() (c *cobra.Command) {
 		Short: "A collector for API testing, it will start a HTTP proxy server",
 	}
 	c.AddCommand(createCollectorCmd(), createControllerCmd(),
-		createProxyCmd(), createDNSCmd())
+		createProxyCmd(), createDNSCmd(), createGatewayCmd())
 	return
 }
