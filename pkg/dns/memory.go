@@ -20,11 +20,13 @@ import "strings"
 
 type memoryCache struct {
 	records map[string]string
+	black   []string
 }
 
 func init() {
 	Registry(&memoryCache{
 		records: make(map[string]string),
+		black:   []string{},
 	})
 }
 
@@ -58,6 +60,33 @@ func (m *memoryCache) Data() (data map[string]string) {
 
 func (m *memoryCache) Size() int {
 	return len(m.records)
+}
+
+func (m *memoryCache) AddBlackDomain(domain string) {
+	m.black = append(m.black, domain)
+	return
+}
+func (m *memoryCache) RemoveBlackDomain(domain string) {
+	for i, item := range m.black {
+		if item == domain {
+			m.black = append(m.black[:i], m.black[i+1:]...)
+			break
+		}
+	}
+}
+func (m *memoryCache) ListBlackDomains() (items []string) {
+	items = make([]string, len(m.black))
+	copy(items, m.black)
+	return
+}
+
+func (m *memoryCache) IsBlackDomain(domain string) bool {
+	for _, item := range m.black {
+		if item == domain {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *memoryCache) Name() string {

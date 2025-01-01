@@ -5,6 +5,9 @@
         function showAddForm() {
             document.getElementById('addFormZone').classList.remove('hide');
         }
+        function showAddBlackDomain() {
+            document.getElementById('addBlackDomain').classList.remove('hide');
+        }
     </script>
     <style>
         .hide {
@@ -15,13 +18,25 @@
 <body>
 
 <div>
-    <button onclick="showAddForm()">Add a new record</button> There are {{.size}} records.
-    <div class="hide" id="addFormZone">
-        <form action="/add" method="post">
-            Domain: <input name="domain"/>
-            IP: <input name="ip"/>
-            <button type="submit">Submit</button>
-        </form>
+    <div>Upstream DNS Server: {{.upstream}}</div>
+    <div>
+        <button onclick="showAddForm()">Add a new record</button> There are {{.size}} records.
+        <div class="hide" id="addFormZone">
+            <form action="/add" method="post">
+                Domain: <input name="domain"/>
+                IP: <input name="ip"/>
+                <button type="submit">Submit</button>
+            </form>
+        </div>
+    </div>
+    <div>
+        <button onclick="showAddBlackDomain()">Add black domain</button>
+        <div class="hide" id="addBlackDomain">
+            <form action="/addBlack" method="post">
+                Domain: <input name="domain"/>
+                <button type="submit">Submit</button>
+            </form>
+        </div>
     </div>
 </div>
 

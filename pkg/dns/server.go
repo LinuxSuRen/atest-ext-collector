@@ -1,5 +1,5 @@
 /*
-Copyright 2024 LinuxSuRen.
+Copyright 2024-2025 LinuxSuRen.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,13 +26,15 @@ import (
 
 type httpServer struct {
 	port     int
+	upstream string
 	listener net.Listener
 	dnsCache DNSCache
 }
 
-func NewHTTPServer(port int, dnsCache DNSCache) Server {
+func NewHTTPServer(port int, upstream string, dnsCache DNSCache) Server {
 	return &httpServer{
 		port:     port,
+		upstream: upstream,
 		dnsCache: dnsCache,
 	}
 }
@@ -47,6 +49,9 @@ func (s *httpServer) Start() (err error) {
 	mux.HandleFunc("/", s.home)
 	mux.HandleFunc("/remove", s.removeData)
 	mux.HandleFunc("/add", s.addData)
+	mux.HandleFunc("/addBlack", s.addBlack)
+	mux.HandleFunc("/removeBlack", s.removeBlack)
+	mux.HandleFunc("/blackWarning", s.blackDomainWarning)
 
 	server := &http.Server{
 		Handler: mux,
@@ -63,8 +68,10 @@ func (s *httpServer) home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = tpl.Execute(w, map[string]interface{}{
-		"cache": s.dnsCache.Data(),
-		"size":  s.dnsCache.Size(),
+		"cache":    s.dnsCache.Data(),
+		"size":     s.dnsCache.Size(),
+		"upstream": s.upstream,
+		"black":    s.dnsCache.ListBlackDomains(),
 	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -85,6 +92,23 @@ func (s *httpServer) addData(w http.ResponseWriter, r *http.Request) {
 	ip := r.Form.Get("ip")
 	s.dnsCache.Put(domain, ip)
 	http.Redirect(w, r, "/", http.StatusPermanentRedirect)
+}
+
+func (s *httpServer) addBlack(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	s.dnsCache.AddBlackDomain(domain)
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (s *httpServer) removeBlack(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	s.dnsCache.RemoveBlackDomain(domain)
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (s *httpServer) blackDomainWarning(w http.ResponseWriter, r *http.Request) {
+	// give users the warning message when they visit a black domain
+	http.Error(w, "This domain is blacklisted.", http.StatusForbidden)
 }
 
 func (s *httpServer) Stop() (err error) {

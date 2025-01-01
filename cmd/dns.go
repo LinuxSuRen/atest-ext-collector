@@ -1,5 +1,5 @@
 /*
-Copyright 2024 LinuxSuRen.
+Copyright 2024-2025 LinuxSuRen.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ func (o *dnsOptions) runE(cmd *cobra.Command, args []string) (err error) {
 
 	cmd.Println("DNS server is ready!")
 	go func() {
-		if err := adns.NewHTTPServer(o.httpPort, o.cacheHandler).Start(); err != nil {
+		if err := adns.NewHTTPServer(o.httpPort, o.upstream, o.cacheHandler).Start(); err != nil {
 			panic(err)
 		}
 	}()
@@ -144,13 +144,20 @@ func (o *dnsOptions) serveDNS(u *net.UDPConn, clientAddr net.Addr, request *laye
 	var ip string
 	var err error
 	resolved = true
-	ip = o.cacheHandler.LookupIP(string(request.Questions[0].Name))
-	if ip == "" {
-		//fmt.Printf("cannot found: %s\n", request.Questions[0].Name)
-		resolved = false
-		return
-		//Todo: Log no data present for the IP and handle:todo
+
+	// check if this is a black domain
+	if o.cacheHandler.IsBlackDomain(string(request.Questions[0].Name)) {
+		ip = "127.0.0.1"
+	} else {
+		ip = o.cacheHandler.LookupIP(string(request.Questions[0].Name))
+		if ip == "" {
+			//fmt.Printf("cannot found: %s\n", request.Questions[0].Name)
+			resolved = false
+			return
+			//Todo: Log no data present for the IP and handle:todo
+		}
 	}
+
 	a, _, _ := net.ParseCIDR(ip + "/24")
 	dnsAnswer.Type = layers.DNSTypeA
 	dnsAnswer.IP = a
