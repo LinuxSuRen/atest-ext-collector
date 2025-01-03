@@ -7,6 +7,8 @@ require (
 	github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2
 	github.com/google/gopacket v1.1.19
 	github.com/linuxsuren/api-testing v0.0.15
+	github.com/linuxsuren/go-fake-runtime v0.0.4
+	github.com/linuxsuren/go-service v0.0.1
 	github.com/miekg/dns v1.1.62
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
