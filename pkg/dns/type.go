@@ -23,6 +23,11 @@ type DNSCache interface {
 	Remove(string)
 	Data() map[string]string
 	Size() int
+	AddBlackDomain(string)
+	RemoveBlackDomain(string)
+	ListBlackDomains() []string
+	IsBlackDomain(string) bool
+	GetWildcardCache() DNSCache
 	Name() string
 }
 

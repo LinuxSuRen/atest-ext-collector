@@ -1,5 +1,5 @@
 /*
-Copyright 2024 LinuxSuRen.
+Copyright 2025 LinuxSuRen.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,82 +17,122 @@ limitations under the License.
 package dns
 
 import (
-	_ "embed"
 	"fmt"
-	"html/template"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/miekg/dns"
 	"net"
-	"net/http"
+	"strings"
 )
 
-type httpServer struct {
-	port     int
-	listener net.Listener
-	dnsCache DNSCache
+type dnsServer struct {
+	config       *DNSConfig
+	cacheHandler DNSCache
 }
 
-func NewHTTPServer(port int, dnsCache DNSCache) Server {
-	return &httpServer{
-		port:     port,
-		dnsCache: dnsCache,
+func NewDNSServer(config *DNSConfig, cacheHandler DNSCache) Server {
+	return &dnsServer{
+		config:       config,
+		cacheHandler: cacheHandler,
 	}
 }
 
-func (s *httpServer) Start() (err error) {
-	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.port))
-	if err != nil {
+func (d *dnsServer) Start() (err error) {
+	addr := net.UDPAddr{
+		Port: d.config.Port,
+		IP:   net.ParseIP("0.0.0.0"),
+	}
+	var u *net.UDPConn
+	if u, err = net.ListenUDP("udp", &addr); err != nil {
 		return
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.home)
-	mux.HandleFunc("/remove", s.removeData)
-	mux.HandleFunc("/add", s.addData)
-
-	server := &http.Server{
-		Handler: mux,
-	}
-	err = server.Serve(s.listener)
-	return
-}
-
-func (s *httpServer) home(w http.ResponseWriter, r *http.Request) {
-	tpl, err := template.New("DNS Simple Server").Parse(string(frontPage))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if err = tpl.Execute(w, map[string]interface{}{
-		"cache": s.dnsCache.Data(),
-		"size":  s.dnsCache.Size(),
-	}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func (s *httpServer) removeData(w http.ResponseWriter, r *http.Request) {
-	domain := r.URL.Query().Get("domain")
-	s.dnsCache.Remove(domain)
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-}
-
-func (s *httpServer) addData(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	domain := r.Form.Get("domain")
-	ip := r.Form.Get("ip")
-	s.dnsCache.Put(domain, ip)
-	http.Redirect(w, r, "/", http.StatusPermanentRedirect)
-}
-
-func (s *httpServer) Stop() (err error) {
-	if s.listener != nil {
-		err = s.listener.Close()
+	fmt.Println("DNS server is ready! Port is:", d.config.Port)
+	// Wait to get request on that port
+	for {
+		tmp := make([]byte, 1024)
+		_, addr, _ := u.ReadFrom(tmp)
+		clientAddr := addr
+		packet := gopacket.NewPacket(tmp, layers.LayerTypeDNS, gopacket.Default)
+		dnsPacket := packet.Layer(layers.LayerTypeDNS)
+		tcp, _ := dnsPacket.(*layers.DNS)
+		if !d.serveDNS(u, clientAddr, tcp) {
+			d.cacheDNS(string(tcp.Questions[0].Name))
+		}
 	}
 	return
 }
 
-//go:embed data/index.html
-var frontPage []byte
+func (d *dnsServer) serveDNS(u *net.UDPConn, clientAddr net.Addr, request *layers.DNS) (resolved bool) {
+	replyMess := request
+	var dnsAnswer layers.DNSResourceRecord
+	dnsAnswer.Type = layers.DNSTypeA
+	var ip string
+	var err error
+	resolved = true
+
+	// check if this is a black domain
+	domain := string(request.Questions[0].Name)
+	if d.cacheHandler.IsBlackDomain(domain) {
+		return
+	} else {
+		ip = d.cacheHandler.LookupIP(domain)
+		if ip == "" {
+			if ip = d.cacheHandler.GetWildcardCache().LookupIP(domain); ip == "" {
+				resolved = false
+				return
+			}
+		}
+	}
+
+	a, _, _ := net.ParseCIDR(ip + "/24")
+	dnsAnswer.Type = layers.DNSTypeA
+	dnsAnswer.IP = a
+	dnsAnswer.Name = []byte(domain)
+	dnsAnswer.Class = layers.DNSClassIN
+	replyMess.QR = true
+	replyMess.ANCount = 1
+	replyMess.OpCode = layers.DNSOpCodeNotify
+	replyMess.AA = true
+	replyMess.Answers = append(replyMess.Answers, dnsAnswer)
+	replyMess.ResponseCode = layers.DNSResponseCodeNoErr
+	buf := gopacket.NewSerializeBuffer()
+	opts := gopacket.SerializeOptions{} // See SerializeOptions for more details.
+	err = replyMess.SerializeTo(buf, opts)
+	if err != nil {
+		panic(err)
+	}
+	u.WriteTo(buf.Bytes(), clientAddr)
+	return
+}
+
+func (d *dnsServer) cacheDNS(name string) {
+	client := dns.Client{}
+	var m dns.Msg
+	m.SetQuestion(name+".", dns.TypeA)
+	reply, _, err := client.Exchange(&m, d.config.Upstream)
+	if err != nil {
+		fmt.Println("failed query domain", name, err)
+		return
+	}
+	if reply.Rcode == dns.RcodeSuccess && len(reply.Answer) > 0 {
+		if a, ok := reply.Answer[0].(*dns.A); ok {
+			d.cacheHandler.Put(strings.TrimSuffix(reply.Question[0].Name, "."), a.A.String())
+			fmt.Println("cache new record", reply.Question[0].Name, "==", a.A.String())
+			fmt.Println("total cache item count", d.cacheHandler.Size())
+			return
+		} else if cname, ok := reply.Answer[0].(*dns.CNAME); ok {
+			fmt.Println(name, "==", strings.TrimSuffix(cname.Hdr.Name, "."), "==", strings.TrimSuffix(cname.Target, "."))
+			if ip := d.cacheHandler.LookupIP(strings.TrimSuffix(cname.Target, ".")); ip != "" {
+				d.cacheHandler.Put(strings.TrimSuffix(cname.Hdr.Name, "."), ip)
+			} else {
+				d.cacheDNS(strings.TrimSuffix(cname.Target, "."))
+			}
+		}
+		fmt.Println("unknown record", reply.Question[0].Name, ",", reply.Answer[0].String())
+	}
+}
+
+func (d *dnsServer) Stop() (err error) {
+	return
+}

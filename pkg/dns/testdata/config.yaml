@@ -1,0 +1,10 @@
+simple:
+  abc.com: 0.0.0.1
+wildcard:
+  "*.def.com": 0.0.0.2
+black:
+  - ghi.com
+wildcard_black:
+  - "*.jkl.com"
+upstream: 8.8.8.8
+port: 53

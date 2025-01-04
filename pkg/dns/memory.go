@@ -16,15 +16,32 @@ limitations under the License.
 
 package dns
 
-import "strings"
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
 
 type memoryCache struct {
-	records map[string]string
+	records       map[string]string
+	black         []string
+	wildcardCache DNSCache
+}
+
+type memoryWildcardCache struct {
+	*memoryCache
 }
 
 func init() {
 	Registry(&memoryCache{
 		records: make(map[string]string),
+		black:   []string{},
+		wildcardCache: &memoryWildcardCache{
+			memoryCache: &memoryCache{
+				records: make(map[string]string),
+				black:   []string{},
+			},
+		},
 	})
 }
 
@@ -60,6 +77,60 @@ func (m *memoryCache) Size() int {
 	return len(m.records)
 }
 
+func (m *memoryCache) AddBlackDomain(domain string) {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return
+	}
+	m.black = append(m.black, domain)
+	return
+}
+func (m *memoryCache) RemoveBlackDomain(domain string) {
+	for i, item := range m.black {
+		if item == domain {
+			m.black = append(m.black[:i], m.black[i+1:]...)
+			break
+		}
+	}
+}
+func (m *memoryCache) ListBlackDomains() (items []string) {
+	items = make([]string, len(m.black))
+	copy(items, m.black)
+	return
+}
+
+func (m *memoryCache) IsBlackDomain(domain string) bool {
+	for _, item := range m.black {
+		if item == domain {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *memoryCache) GetWildcardCache() DNSCache {
+	return m.wildcardCache
+}
+
 func (m *memoryCache) Name() string {
 	return "memory"
+}
+
+func (m *memoryWildcardCache) LookupIP(domain string) string {
+	fmt.Println("looking", domain, "from wildcard")
+	for pattern, ip := range m.records {
+		matched, _ := regexp.MatchString(pattern, domain)
+		if matched {
+			return ip
+		}
+	}
+	return ""
+}
+
+func (m *memoryWildcardCache) Init(init map[string]string) {
+	m.records = init
+}
+
+func (m *memoryWildcardCache) Name() string {
+	return "memory_wildcard"
 }
