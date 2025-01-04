@@ -27,6 +27,7 @@ type DNSCache interface {
 	RemoveBlackDomain(string)
 	ListBlackDomains() []string
 	IsBlackDomain(string) bool
+	GetWildcardCache() DNSCache
 	Name() string
 }
 

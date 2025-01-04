@@ -16,17 +16,32 @@ limitations under the License.
 
 package dns
 
-import "strings"
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
 
 type memoryCache struct {
-	records map[string]string
-	black   []string
+	records       map[string]string
+	black         []string
+	wildcardCache DNSCache
+}
+
+type memoryWildcardCache struct {
+	*memoryCache
 }
 
 func init() {
 	Registry(&memoryCache{
 		records: make(map[string]string),
 		black:   []string{},
+		wildcardCache: &memoryWildcardCache{
+			memoryCache: &memoryCache{
+				records: make(map[string]string),
+				black:   []string{},
+			},
+		},
 	})
 }
 
@@ -89,6 +104,29 @@ func (m *memoryCache) IsBlackDomain(domain string) bool {
 	return false
 }
 
+func (m *memoryCache) GetWildcardCache() DNSCache {
+	return m.wildcardCache
+}
+
 func (m *memoryCache) Name() string {
 	return "memory"
+}
+
+func (m *memoryWildcardCache) LookupIP(domain string) string {
+	fmt.Println("looking", domain, "from wildcard")
+	for pattern, ip := range m.records {
+		matched, _ := regexp.MatchString(pattern, domain)
+		if matched {
+			return ip
+		}
+	}
+	return ""
+}
+
+func (m *memoryWildcardCache) Init(init map[string]string) {
+	m.records = init
+}
+
+func (m *memoryWildcardCache) Name() string {
+	return "memory_wildcard"
 }

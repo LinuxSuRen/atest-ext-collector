@@ -16,6 +16,7 @@ atest-collector dns --simple-config config.yaml
 
 Below is an example of a simple DNS config:
 ```yaml
-atest.com: 127.0.0.1
-www.atest.com: 127.0.0.1
+simple:
+    atest.com: 127.0.0.1
+    www.atest.com: 127.0.0.1
 ```
