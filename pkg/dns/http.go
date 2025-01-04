@@ -94,7 +94,11 @@ func (s *httpServer) addData(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpServer) addBlack(w http.ResponseWriter, r *http.Request) {
-	domain := r.URL.Query().Get("domain")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	domain := r.Form.Get("domain")
 	s.dnsCache.AddBlackDomain(domain)
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }

@@ -54,5 +54,19 @@
     </tr>
     {{end}}
 </table>
+
+<div>Black list</div>
+<table border="1">
+    <tr>
+        <th>Domain</th>
+        <th>Operation</th>
+    </tr>
+    {{range .black}}
+    <tr>
+        <td>{{ . }}</td>
+        <td><a href="/removeBlack?domain={{.}}">Remove</a></td>
+    </tr>
+    {{end}}
+</table>
 </body>
 </html>

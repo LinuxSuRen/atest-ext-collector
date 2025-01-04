@@ -78,6 +78,10 @@ func (m *memoryCache) Size() int {
 }
 
 func (m *memoryCache) AddBlackDomain(domain string) {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return
+	}
 	m.black = append(m.black, domain)
 	return
 }
